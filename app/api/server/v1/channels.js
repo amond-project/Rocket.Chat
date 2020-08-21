@@ -39,6 +39,74 @@ function findChannelByIdOrName({ params, checkedArchived = true, userId }) {
 	return room;
 }
 
+
+API.v1.addRoute('channels.livon-join', { authRequired: true }, {
+	post() {
+		console.log('channels.livon-join');
+		const maximumMembers = 10;
+		const joinCode = "1234";
+
+		const { prefixRoomId } = this.bodyParams;
+		console.log(prefixRoomId);
+
+		// 조인된 채널이 있는지 검색
+		const cursor = Rooms.findBySubscriptionTypeAndUserId('c', this.userId, {});
+		const joinedTotalCount = cursor.count();
+		console.log('joinedTotalCount', joinedTotalCount);
+		if (joinedTotalCount > 0) {
+			const joinedRooms = cursor.fetch();
+			const joinedRoom = joinedRooms.find(room => room.name.includes(prefixRoomId));
+
+			if (joinedRoom) {
+				return API.v1.success({
+					id: joinedRoom._id
+				})
+			}
+		}
+
+		// 이미 생성된 채널이 있는지 조회
+		const ourQuery = Object.assign({}, { t: 'c', name: new RegExp(prefixRoomId, 'i') });
+		let rooms = Rooms.find(ourQuery).fetch();
+		const totalCount = rooms.length;
+		console.log(rooms);
+		console.log(totalCount);
+
+		let id;
+		// 채널이 없다면 생성하고 조인(채널 생성권한 필요)
+		if (totalCount === 0) {
+			id = createLivonChannel(prefixRoomId + '0', joinCode);
+		} else {
+			// 비어 있는 채널 찾기
+            const findRoom = rooms.find(room => room.usersCount < maximumMembers);
+            if (findRoom) {
+            	id = findRoom._id;
+            } else {
+				id = createLivonChannel(prefixRoomId + `${rooms.length + 1}`, joinCode);
+            }
+		}
+
+		// 채널 조인
+		Meteor.runAsUser(this.userId, () => {
+			Meteor.call('joinRoom', id, joinCode);
+		});
+
+		return API.v1.success({
+			id: id
+		})
+	},
+});
+
+function createLivonChannel(roomName, joinCode) {
+	let channel;
+	Meteor.runAsUser('r2rsuRrr76hMCFbiv', () => {
+		channel = Meteor.call('createChannel', roomName, [], false, null);
+		console.log('createChannel', channel._id);
+		// 초대 코드 발급
+		Meteor.call('saveRoomSettings', channel._id, 'joinCode', joinCode);
+	});
+	return channel._id;
+}
+
 API.v1.addRoute('channels.addAll', { authRequired: true }, {
 	post() {
 		const findResult = findChannelByIdOrName({ params: this.requestParams() });

@@ -58,28 +58,45 @@ export function findPrivateGroupByIdOrName({ params, userId, checkedArchived = t
 
 API.v1.addRoute('groups.join', { authRequired: true }, {
 	post() {
+		console.log('groups.join');
 		const maximumMembers = 10;
 
-		const { prefixRoomId, channelName } = this.bodyParams;
+		const { prefixRoomId } = this.bodyParams;
+		console.log(prefixRoomId);
+
+		// 조인된 채널이 있는지 검색
 
 		// 이미 생성된 채널이 있는지 조회
-		const ourQuery = Object.assign({}, { t: 'p', _id: /prefixRoomId/ });
+		const ourQuery = Object.assign({}, { t: 'p', name: new RegExp(prefixRoomId, 'i') });
 		let rooms = Rooms.find(ourQuery).fetch();
 		const totalCount = rooms.length;
+		console.log(rooms);
+		console.log(totalCount);
 
+		let id;
 		// 채널이 없다면 생성하고 조인(채널 생성권한 필요)
 		if (totalCount === 0) {
-			let id;
-			Meteor.runAsUser('adminUserId', () => {
-				id = Meteor.call('createPrivateGroup', channelName, [], false, null);
+			Meteor.runAsUser('r2rsuRrr76hMCFbiv', () => {
+				id = Meteor.call('createPrivateGroup', prefixRoomId + '0', [], false, null);
 			});
+		} else {
+			// 비어 있는 채널 찾기
+            const findRoom = rooms.find(room => room.usersCount < maximumMembers);
+            if (findRoom) {
+            	id = findRoom._id;
+            } else {
+            	Meteor.runAsUser('r2rsuRrr76hMCFbiv', () => {
+					id = Meteor.call('createPrivateGroup', prefixRoomId + `${rooms.length + 1}`, [], false, null);
+				});
+            }
 		}
 
-		// 채널이 있다면 멤버 카운트
+		// 채널 조인
 
-		// 비어있는 채널이 있다면 조인
 
-		// 채널 정보 리턴(App 실시간 스트림 및 채팅 전달)
+		return API.v1.success({
+			id: id
+		})
 	},
 });
 
@@ -252,7 +269,7 @@ API.v1.addRoute('groups.create', { authRequired: true }, {
 		}
 
 		const readOnly = typeof this.bodyParams.readOnly !== 'undefined' ? this.bodyParams.readOnly : false;
-
+		console.log('this.userId', this.userId);
 		let id;
 		Meteor.runAsUser(this.userId, () => {
 			id = Meteor.call('createPrivateGroup', this.bodyParams.name, this.bodyParams.members ? this.bodyParams.members : [], readOnly, this.bodyParams.customFields);
