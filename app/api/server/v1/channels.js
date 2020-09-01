@@ -98,7 +98,7 @@ API.v1.addRoute('channels.livon-join', { authRequired: true }, {
 
 function createLivonChannel(roomName, joinCode) {
 	let channel;
-	Meteor.runAsUser('r2rsuRrr76hMCFbiv', () => {
+	Meteor.runAsUser('cvqQ2nftdhSimrzmg', () => {
 		channel = Meteor.call('createChannel', roomName, [], false, null);
 		console.log('createChannel', channel._id);
 		// 초대 코드 발급
