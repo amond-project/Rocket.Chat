@@ -160,11 +160,12 @@ export const sendMessage = function(user, message, room, upsert = false) {
 		delete message.tshow;
 	}
 
-	const { _id, username, name } = user;
+	const { _id, username, name, customFields } = user;
 	message.u = {
 		_id,
 		username,
 		name,
+		customFields,
 	};
 	message.rid = room._id;
 
